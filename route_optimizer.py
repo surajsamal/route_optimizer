@@ -1,14 +1,13 @@
 import streamlit as st
 import folium
 import requests
-from streamlit_folium import st_folium
+import streamlit.components.v1 as components  
 
 # Load your TomTom API key from Streamlit secrets
 TOMTOM_API_KEY = st.secrets["TOMTOM_API_KEY"]
 
 st.set_page_config(page_title="Route Optimizer", layout="centered")
 st.title("🗺️ Route Optimizer from Origin to Destination")
-
 st.markdown("Enter the **coordinates** for your Origin and Destination below:")
 
 # Input fields for coordinates
@@ -25,7 +24,11 @@ with st.form("coords_form"):
 
 if submitted:
     # Construct TomTom Routing API URL
-    route_url = f"https://api.tomtom.com/routing/1/calculateRoute/{origin_lat},{origin_lon}:{dest_lat},{dest_lon}/json?key={TOMTOM_API_KEY}&traffic=false"
+    route_url = (
+        f"https://api.tomtom.com/routing/1/calculateRoute/"
+        f"{origin_lat},{origin_lon}:{dest_lat},{dest_lon}/json"
+        f"?key={TOMTOM_API_KEY}&traffic=false"
+    )
 
     # Call the API
     response = requests.get(route_url)
@@ -40,17 +43,19 @@ if submitted:
         # Draw polyline on map
         folium.PolyLine(
             locations=[(pt["latitude"], pt["longitude"]) for pt in route],
-            color="blue",
             weight=5
         ).add_to(m)
 
         # Add markers
-        folium.Marker([origin_lat, origin_lon], tooltip="Origin", icon=folium.Icon(color="green")).add_to(m)
-        folium.Marker([dest_lat, dest_lon], tooltip="Destination", icon=folium.Icon(color="red")).add_to(m)
+        folium.Marker([origin_lat, origin_lon], tooltip="Origin",
+                      icon=folium.Icon(color="green")).add_to(m)
+        folium.Marker([dest_lat, dest_lon], tooltip="Destination",
+                      icon=folium.Icon(color="red")).add_to(m)
 
-        # Display map in Streamlit
+        # Embed map in Streamlit via components.html
         st.subheader("Optimized Route:")
-        st_folium(m, width=700, height=500)
+        map_html = m._repr_html_()
+        components.html(map_html, height=600, scrolling=True)
+
     else:
         st.error("Failed to get route. Check coordinates or API key.")
-
