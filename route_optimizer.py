@@ -3,7 +3,7 @@ import folium
 import streamlit as st
 
 # === YOUR TOMTOM API KEY ===
-TOMTOM_API_KEY = "y3b1WRTpd4Sx8a9jaKN9PdyjG3G0SU5R"
+TOMTOM_API_KEY = st.secrets["TOMTOM_API_KEY"]
 
 # === INPUT LOCATIONS ===
 origin = (12.9716, 77.5946)   # Restaurant: Bangalore
