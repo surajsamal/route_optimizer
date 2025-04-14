@@ -1,49 +1,56 @@
-import requests
-import folium
 import streamlit as st
+import folium
+import requests
+from streamlit_folium import st_folium
 
-# === YOUR TOMTOM API KEY ===
+# Load your TomTom API key from Streamlit secrets
 TOMTOM_API_KEY = st.secrets["TOMTOM_API_KEY"]
 
-# === INPUT LOCATIONS ===
-origin = (12.9716, 77.5946)   # Restaurant: Bangalore
-destination = (12.9352, 77.6145)  # Customer: Bangalore
+st.set_page_config(page_title="Route Optimizer", layout="centered")
+st.title("🗺️ Route Optimizer from Origin to Destination")
 
-def get_route(origin, destination, api_key):
-    url = f"https://api.tomtom.com/routing/1/calculateRoute/{origin[0]},{origin[1]}:{destination[0]},{destination[1]}/json"
-    params = {
-        "key": api_key,
-        "traffic": "true"
-    }
+st.markdown("Enter the **coordinates** for your Origin and Destination below:")
 
-    response = requests.get(url, params=params)
-    data = response.json()
+# Input fields for coordinates
+with st.form("coords_form"):
+    st.subheader("Origin")
+    origin_lat = st.number_input("Origin Latitude", format="%.6f", value=19.076090)
+    origin_lon = st.number_input("Origin Longitude", format="%.6f", value=72.877426)
 
-    summary = data['routes'][0]['summary']
-    route = data['routes'][0]['legs'][0]['points']
+    st.subheader("Destination")
+    dest_lat = st.number_input("Destination Latitude", format="%.6f", value=19.218330)
+    dest_lon = st.number_input("Destination Longitude", format="%.6f", value=72.978088)
 
-    return {
-        "distance_km": summary['lengthInMeters'] / 1000,
-        "travel_time_min": summary['travelTimeInSeconds'] / 60,
-        "traffic_delay_min": summary['trafficDelayInSeconds'] / 60,
-        "route_points": [(p['latitude'], p['longitude']) for p in route]
-    }
+    submitted = st.form_submit_button("Get Optimized Route")
 
-def create_map(route_points, origin, destination):
-    m = folium.Map(location=origin, zoom_start=13)
-    folium.Marker(origin, tooltip="Origin", icon=folium.Icon(color='green')).add_to(m)
-    folium.Marker(destination, tooltip="Destination", icon=folium.Icon(color='red')).add_to(m)
-    folium.PolyLine(route_points, color="blue", weight=5).add_to(m)
-    return m
+if submitted:
+    # Construct TomTom Routing API URL
+    route_url = f"https://api.tomtom.com/routing/1/calculateRoute/{origin_lat},{origin_lon}:{dest_lat},{dest_lon}/json?key={TOMTOM_API_KEY}&traffic=false"
 
-# === Streamlit UI ===
-st.title("Suraj's Delivery Route Optimizer")
+    # Call the API
+    response = requests.get(route_url)
 
-route_info = get_route(origin, destination, TOMTOM_API_KEY)
+    if response.status_code == 200:
+        data = response.json()
+        route = data["routes"][0]["legs"][0]["points"]
 
-st.write(f"**Distance:** {route_info['distance_km']:.2f} km")
-st.write(f"**Estimated Time:** {route_info['travel_time_min']:.1f} mins")
-st.write(f"**Traffic Delay:** {route_info['traffic_delay_min']:.1f} mins")
+        # Create folium map centered at origin
+        m = folium.Map(location=[origin_lat, origin_lon], zoom_start=13)
 
-m = create_map(route_info['route_points'], origin, destination)
-st.components.v1.html(m._repr_html_(), height=500)
+        # Draw polyline on map
+        folium.PolyLine(
+            locations=[(pt["latitude"], pt["longitude"]) for pt in route],
+            color="blue",
+            weight=5
+        ).add_to(m)
+
+        # Add markers
+        folium.Marker([origin_lat, origin_lon], tooltip="Origin", icon=folium.Icon(color="green")).add_to(m)
+        folium.Marker([dest_lat, dest_lon], tooltip="Destination", icon=folium.Icon(color="red")).add_to(m)
+
+        # Display map in Streamlit
+        st.subheader("Optimized Route:")
+        st_folium(m, width=700, height=500)
+    else:
+        st.error("Failed to get route. Check coordinates or API key.")
+
